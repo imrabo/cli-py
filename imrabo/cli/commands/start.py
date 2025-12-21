@@ -91,6 +91,9 @@ def start():
         for _ in range(30): # Wait up to 30 seconds
             if _is_runtime_active(client):
                 typer.echo(f"imrabo runtime started successfully at {client.base_url}")
+                # On Windows, prevent the Popen destructor from running on the detached process handle
+                if sys.platform == "win32":
+                    process._handle = None
                 return typer.Exit(0)
             time.sleep(1)
         
