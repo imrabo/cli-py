@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+.Python/
+build/
+develop-eggs/
+dist/
+eggs/
+*.egg-info/
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.mypy_cache/
+
+# imrabo specific
+.imrabo/

@@ -1,0 +1,22 @@
+[project]
+name = "imrabo"
+version = "0.0.1"
+description = "A local-first AI CLI runtime"
+authors = [{ name = "imrabo", email = "author@example.com" }]
+dependencies = [
+    "typer>=0.9.0",
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "requests>=2.31.0",
+    "httpx>=0.25.0",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+
+[project.scripts]
+imrabo = "imrabo.cli.main:app"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

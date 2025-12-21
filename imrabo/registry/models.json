@@ -1,0 +1,28 @@
+{
+  "qwen2.5-7b": {
+    "id": "qwen2.5-7b",
+    "engine": "llama.cpp",
+    "min_ram_gb": 8,
+    "variants": [
+      {
+        "id": "q4",
+        "url": "https://example.com/qwen2.5-7b-instruct-q4_k_m.gguf",
+        "sha256": "abcdef1234567890",
+        "size_gb": 4.6
+      }
+    ]
+  },
+  "qwen2.5-1.5b": {
+    "id": "qwen2.5-1.5b",
+    "engine": "llama.cpp",
+    "min_ram_gb": 4,
+    "variants": [
+      {
+        "id": "q4",
+        "url": "https://example.com/qwen2.5-1.5b-instruct-q4.gguf",
+        "sha256": "0987654321fedcba",
+        "size_gb": 1.2
+      }
+    ]
+  }
+}
