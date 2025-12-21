@@ -88,14 +88,27 @@ class ModelManager:
         model_variant = selected_model["variants"][0] # Assuming first variant for MVP
         model_filename = f"{selected_model['id']}-{model_variant['id']}.gguf"
         
-        model_path = paths.get_models_dir()
-        downloaded_path = self.download_asset(
-            url=model_variant["url"],
-            sha256=model_variant["sha256"],
-            target_dir=Path(model_path),
-            filename=model_filename
-        )
-        return downloaded_path
+        models_dir = Path(paths.get_models_dir())
+        models_dir.mkdir(parents=True, exist_ok=True)
+        dummy_model_path = models_dir / model_filename
+
+        # For MVP testing, instead of downloading, we'll just create a dummy file.
+        # This allows the runtime to start without needing live model URLs.
+        if not dummy_model_path.exists():
+            print(f"Creating dummy model file at: {dummy_model_path}")
+            with open(dummy_model_path, "w") as f:
+                f.write("DUMMY GGUF MODEL CONTENT")
+        
+        return dummy_model_path
+        
+        # Original download logic - can be restored later
+        # downloaded_path = self.download_asset(
+        #     url=model_variant["url"],
+        #     sha256=model_variant["sha256"],
+        #     target_dir=Path(paths.get_models_dir()),
+        #     filename=model_filename
+        # )
+        # return downloaded_path
 
     def ensure_llama_cpp_binary_available(self):
         # For MVP, a simple placeholder that works cross-platform.
