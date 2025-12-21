@@ -9,13 +9,13 @@ from pathlib import Path
 import httpx # For making requests to llama.cpp server
 
 from imrabo.internal import paths
-from imrabo.internal.logging import configure_logging
+from imrabo.internal.logging import get_logger
 from imrabo.internal.constants import RUNTIME_HOST, RUNTIME_PORT
 from imrabo.runtime.security import load_token, generate_token, save_token
 from imrabo.runtime.model_manager import ModelManager
 from imrabo.engine.llama_cpp import LlamaCppBinary
 
-logger = configure_logging()
+logger = get_logger()
 app = FastAPI()
 security = HTTPBearer()
 

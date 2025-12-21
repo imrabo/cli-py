@@ -3,12 +3,12 @@ import asyncio
 from pathlib import Path
 
 from imrabo.internal import paths
-from imrabo.internal.logging import configure_logging
+from imrabo.internal.logging import get_logger
 from imrabo.runtime import system
 from imrabo.cli.client import RuntimeClient
 from imrabo.runtime.model_manager import ModelManager # To perform local checks
 
-logger = configure_logging()
+logger = get_logger()
 
 def doctor():
     """

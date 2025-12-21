@@ -1,9 +1,9 @@
 import typer
 import asyncio
 from imrabo.cli.client import RuntimeClient
-from imrabo.internal.logging import configure_logging
+from imrabo.internal.logging import get_logger
 
-logger = configure_logging()
+logger = get_logger()
 
 def status():
     """

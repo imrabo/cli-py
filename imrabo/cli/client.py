@@ -6,9 +6,9 @@ from pathlib import Path
 from imrabo.internal import paths
 from imrabo.internal.constants import RUNTIME_HOST, RUNTIME_PORT
 from imrabo.runtime.security import load_token, generate_token, save_token # Need save_token if it's not generated yet
-from imrabo.internal.logging import configure_logging
+from imrabo.internal.logging import get_logger
 
-logger = configure_logging()
+logger = get_logger()
 
 class RuntimeClient:
     def __init__(self, host: str = RUNTIME_HOST, port: int = RUNTIME_PORT):

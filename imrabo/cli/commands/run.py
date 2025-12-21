@@ -1,59 +1,42 @@
 import typer
 import asyncio
 
-from imrabo.cli.commands import start as start_command # Alias to avoid name conflict
+from imrabo.cli import core
 from imrabo.cli.client import RuntimeClient
-from imrabo.internal.logging import configure_logging
+from imrabo.internal.logging import get_logger
 
-logger = configure_logging()
+logger = get_logger()
 
 def run(prompt: str):
     """
     Run a prompt through the local AI model.
     """
-    client = RuntimeClient()
+    client = core.RuntimeClient()
 
     # Check if runtime is active, if not, try to start it
-    async def check_and_start_runtime():
-        try:
-            health_status = await client.health()
-            if health_status.get("status") == "ok":
-                return True
-        except Exception:
-            pass # Runtime not active
-        
+    if not core.is_runtime_active(client):
         typer.echo("imrabo runtime is not active. Attempting to start it...")
-        # Call the start command directly
-        start_command.start()
-        # After start, recheck health
-        try:
-            health_status = await client.health()
-            return health_status.get("status") == "ok"
-        except Exception:
-            return False
+        if not core.start_runtime():
+            typer.echo(typer.style("Error: Could not start imrabo runtime. Please run 'imrabo start' manually and check logs.", fg=typer.colors.RED))
+            raise typer.Exit(1)
+        typer.echo("Runtime started successfully.")
 
-    if not asyncio.run(check_and_start_runtime()):
-        typer.echo("Error: Could not ensure imrabo runtime is active. Please run 'imrabo start' manually.")
-        return typer.Exit(1)
-
-    typer.echo(f"Sending prompt to runtime...")
+    typer.echo("Sending prompt to runtime...")
     
     async def stream_response():
         try:
+            # Use a context manager to handle the async generator
             async for chunk in client.run_prompt(prompt):
-                typer.echo(chunk, nl=False) # nl=False to print chunks without newlines
-            typer.echo("") # Add a final newline after streaming is done
+                typer.echo(chunk, nl=False)
+            typer.echo("") # Final newline
         except RuntimeError as e:
-            typer.echo(f"\nError from runtime: {e}", err=True)
-            logger.error(f"Error while running prompt: {e}")
-            return typer.Exit(1)
+            typer.echo(f"\n{typer.style('Error from runtime:', fg=typer.colors.RED)} {e}", err=True)
+            logger.error("Error while running prompt", exc_info=e)
+            raise typer.Exit(1)
         except Exception as e:
-            typer.echo(f"\nAn unexpected error occurred: {e}", err=True)
-            logger.error(f"Unexpected error while running prompt: {e}")
-            return typer.Exit(1)
+            typer.echo(f"\n{typer.style('An unexpected error occurred:', fg=typer.colors.RED)} {e}", err=True)
+            logger.error("Unexpected error while running prompt", exc_info=e)
+            raise typer.Exit(1)
 
     asyncio.run(stream_response())
-    return typer.Exit(0)
 
-if __name__ == "__main__":
-    typer.run(run)

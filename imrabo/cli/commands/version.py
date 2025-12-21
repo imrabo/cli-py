@@ -1,8 +1,8 @@
 import typer
 import importlib.metadata
-from imrabo.internal.logging import configure_logging
+from imrabo.internal.logging import get_logger
 
-logger = configure_logging()
+logger = get_logger()
 
 def version():
     """

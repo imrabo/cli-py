@@ -5,10 +5,10 @@ import sys # Added sys import
 from pathlib import Path
 
 from imrabo.internal import paths
-from imrabo.internal.logging import configure_logging
+from imrabo.internal.logging import get_logger
 from imrabo.internal.constants import RUNTIME_HOST, RUNTIME_PORT
 
-logger = configure_logging()
+logger = get_logger()
 
 class LlamaCppBinary:
     def __init__(self, binary_path: Path, model_path: Path):
