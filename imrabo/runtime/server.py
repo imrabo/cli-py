@@ -148,42 +148,30 @@ async def run_endpoint(request: Request):
         "stream": True # Request streaming response
     }
     
-    # Make an async HTTP request to the llama.cpp server
+    # Make an async HTTP request to the llama.cpp server and stream the response back
     async def stream_from_llama_cpp():
         try:
             async with httpx.AsyncClient() as client:
-                # Assuming /completion endpoint for text generation
                 async with client.stream("POST", f"{llama_cpp_api_url}/completion", json=llama_cpp_payload, timeout=None) as response:
+                    # Check for an error response on the initial connection
                     response.raise_for_status()
+                    # Stream the raw chunks back to the client
                     async for chunk in response.aiter_bytes():
-                        # Llama.cpp server streams JSON objects, typically separated by newline
-                        # We need to parse and re-emit them as SSE
-                        try:
-                            # Decode and split by newlines, each part might be a JSON object
-                            # This is a simplification; real parsing might need buffering
-                            lines = chunk.decode('utf-8').split('\n')
-                            for line in lines:
-                                if line.strip():
-                                    if line.startswith("data: "):
-                                        json_data = json.loads(line[len("data: "):])
-                                        content = json_data.get("content")
-                                        if content:
-                                            yield f"data: {json.dumps({'content': content})}\n\n"
-                                        if json_data.get("stop"):
-                                            yield "data: [DONE]\n\n"
-                                            return
-                        except json.JSONDecodeError:
-                            # Handle cases where a chunk is not a complete JSON line
-                            logger.warning(f"Incomplete JSON chunk received: {line}")
-                            pass
+                        yield chunk
         except httpx.RequestError as exc:
-            logger.error(f"Error making request to llama.cpp server: {exc}")
-            yield f"data: {json.dumps({'error': f'Could not connect to LLM: {exc}'})}\n\n"
-            yield "data: [DONE]\n\n"
-        except Exception as e:
-            logger.error(f"An unexpected error occurred during streaming: {e}")
-            yield f"data: {json.dumps({'error': f'An unexpected error occurred: {e}'})}\n\n"
-            yield "data: [DONE]\n\n"
+            logger.error("Request to llama.cpp server failed", error=str(exc))
+            error_data = {"error": "Connection to the internal LLM engine failed."}
+            yield f"data: {json.dumps(error_data)}\n\n"
+            yield f"data: {json.dumps({'stop': True})}\n\n"
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "llama.cpp server returned an error", 
+                status_code=exc.response.status_code, 
+                response=exc.response.text
+            )
+            error_data = {"error": f"Internal LLM engine returned status {exc.response.status_code}"}
+            yield f"data: {json.dumps(error_data)}\n\n"
+            yield f"data: {json.dumps({'stop': True})}\n\n"
 
     return Response(stream_from_llama_cpp(), media_type="text/event-stream")
 

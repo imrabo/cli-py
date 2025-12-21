@@ -85,8 +85,6 @@ def start_runtime() -> bool:
         for _ in range(30):
             if is_runtime_active(client):
                 logger.info("Runtime confirmed active", base_url=client.base_url)
-                if sys.platform == "win32":
-                    process._handle = None # Prevent OSError on Windows exit
                 return True
             time.sleep(1)
 

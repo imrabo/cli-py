@@ -111,22 +111,66 @@ class ModelManager:
         # return downloaded_path
 
     def ensure_llama_cpp_binary_available(self):
-        # For MVP, a simple placeholder that works cross-platform.
-        print("Ensuring llama.cpp binary is available (placeholder)...")
+        # For MVP testing, we create a fully functional dummy server.
+        # This allows end-to-end testing of the runtime and client without a real model.
+        print("Ensuring llama.cpp binary is available (using dummy server)...")
         bin_dir = Path(paths.get_bin_dir())
-        bin_dir.mkdir(parents=True, exist_ok=True)
+        bin_dir.mkdir(parents=True, exist_ok=True);
 
-        # A simple python script that sleeps is a good cross-platform placeholder server.
         dummy_binary_path = bin_dir / "dummy_llama_server.py"
 
         if not dummy_binary_path.exists():
-            dummy_script_content = (
-                "import time\n"
-                "import sys\n"
-                "print(f'Dummy llama.cpp server started with args: {sys.argv}')\n"
-                "print('Process will sleep for an hour to simulate a running server.')\n"
-                "time.sleep(3600)\n"
-            )
+            dummy_script_content = f"""
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
+import asyncio
+import json
+import sys
+
+app = FastAPI()
+
+# Get port from command line arguments, default to 8001
+port = 8001
+if "--port" in sys.argv:
+    try:
+        port_index = sys.argv.index("--port") + 1
+        port = int(sys.argv[port_index])
+    except (ValueError, IndexError):
+        pass
+
+@app.post("/completion")
+async def completion(request: Request):
+    payload = await request.json()
+    prompt = payload.get("prompt", "no prompt given")
+
+    async def generate_stream():
+        response_template = "This is a dummy streaming response for the prompt: "
+        full_response = response_template + prompt
+        for word in full_response.split():
+            # Mimic llama.cpp server's JSON streaming format
+            response_chunk = {
+                "content": f"{word} ",
+                "stop": False
+            }
+            yield f"data: {json.dumps(response_chunk)}\n\n"
+            await asyncio.sleep(0.05)
+        
+        # Send the final stop message
+        stop_chunk = {"content": "", "stop": True}
+        yield f"data: {json.dumps(stop_chunk)}\n\n"
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
+
+@app.get("/")
+async def health_check():
+    # A root endpoint for basic connectivity checks
+    return {"status": "dummy server is running"}
+
+if __name__ == "__main__":
+    print(f"Starting dummy llama.cpp server on port {port}...")
+    uvicorn.run(app, host="127.0.0.1", port=port)
+"""
             with open(dummy_binary_path, "w") as f:
                 f.write(dummy_script_content)
         
