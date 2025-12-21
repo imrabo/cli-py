@@ -32,7 +32,7 @@ class RuntimeClient:
     async def _request(self, method: str, endpoint: str, **kwargs):
         try:
             async with httpx.AsyncClient(base_url=self.base_url) as client:
-                response = await client.request(method, endpoint, headers=self._get_headers(), **kwargs)
+                response = await client.request(method, endpoint.lstrip('/'), headers=self._get_headers(), **kwargs)
                 response.raise_for_status()
                 return response
         except httpx.RequestError as exc:
@@ -55,17 +55,21 @@ class RuntimeClient:
         return response.json()
 
     async def run_prompt(self, prompt: str) -> AsyncGenerator[str, None]:
-        url = f"{self.base_url}/run"
+        url = f"{self.base_url.rstrip('/')}/run"
         headers = self._get_headers()
         json_payload = {"prompt": prompt}
 
         try:
             async with httpx.AsyncClient() as client:
                 async with client.stream("POST", url, headers=headers, json=json_payload, timeout=None) as response:
-                    response.raise_for_status()
+                    # Manually check for HTTP errors before trying to stream
+                    if response.status_code >= 400:
+                        # Consume the error response body before raising
+                        error_body = await response.aread()
+                        raise RuntimeError(f"Runtime returned an error: {response.status_code} - {error_body.decode()}")
+
+                    # Stream the response content
                     async for chunk in response.aiter_bytes():
-                        # The server streams SSE events, each line starting with 'data: '
-                        # Need to parse these and yield the content
                         lines = chunk.decode('utf-8').split('\n')
                         for line in lines:
                             if line.strip().startswith("data: "):
@@ -74,16 +78,15 @@ class RuntimeClient:
                                     if "content" in json_data:
                                         yield json_data["content"]
                                     if json_data.get("stop"):
-                                        return # End of stream
+                                        return
                                 except json.JSONDecodeError:
                                     logger.warning(f"Failed to decode JSON from SSE: {line}")
                                     continue
         except httpx.RequestError as exc:
             logger.error(f"Streaming request failed to {url}: {exc}")
             raise RuntimeError(f"Could not connect to runtime for prompt: {exc}")
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"Streaming status error for {url}: {exc.response.status_code} - {exc.response.text}")
-            raise RuntimeError(f"Runtime error during prompt: {exc.response.status_code} - {exc.response.text}")
+        # The RuntimeError is now raised from within the try block
+
 
 if __name__ == "__main__":
     async def test_client():

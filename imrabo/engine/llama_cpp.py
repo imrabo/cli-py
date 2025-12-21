@@ -1,6 +1,7 @@
 import subprocess
 import os
 import time
+import sys # Added sys import
 from pathlib import Path
 
 from imrabo.internal import paths
@@ -28,11 +29,15 @@ class LlamaCppBinary:
             logger.info("Llama.cpp server already running.")
             return True
 
-        # Assuming llama.cpp has a 'server' executable or 'main' with --port argument
-        # For simplicity in MVP, let's assume 'main' executable with --port
         # Real llama.cpp server might be a separate executable or specific arguments.
-        command = [
-            str(self.binary_path),
+        command = []
+        if str(self.binary_path).endswith(".py"):
+            command.append(sys.executable) # Add python interpreter
+        
+        command.append(str(self.binary_path))
+
+        # Add arguments for the real llama.cpp server. The dummy script will just ignore them.
+        command.extend([
             "-m", str(self.model_path),
             "--host", host,
             "--port", str(port),
@@ -40,7 +45,7 @@ class LlamaCppBinary:
             "-n", "-1",  # Infinite generation
             "-t", "4",   # Threads
             "--mlock" # Lock model into RAM
-        ]
+        ])
         
         # Redirect stdout/stderr to files for debugging and to prevent blocking
         log_dir = Path(paths.get_app_data_dir()) / "logs"
@@ -53,12 +58,12 @@ class LlamaCppBinary:
                 command,
                 stdout=stdout_log,
                 stderr=stderr_log,
-                preexec_fn=os.setsid if os.name != 'nt' else None, # Detach on Unix-like
-                creationflags=subprocess.DETACHED_PROCESS if os.name == 'nt' else 0 # Detach on Windows
+                creationflags=subprocess.DETACHED_PROCESS if os.name == 'nt' else 0, # Detach on Windows
+                start_new_session=True if os.name != 'nt' else False # Detach on Unix-like
             )
-            logger.info(f"Started llama.cpp server with PID: {self.process.pid}")
+            logger.info(f"Started llama.cpp server with PID: {self.process.pid} using command: {' '.join(command)}")
             # Give it a moment to start
-            time.sleep(2) 
+            time.sleep(3) 
             return True
         except Exception as e:
             logger.error(f"Failed to start llama.cpp server: {e}")

@@ -98,18 +98,25 @@ class ModelManager:
         return downloaded_path
 
     def ensure_llama_cpp_binary_available(self):
-        # This part will be more complex as it needs to select binary based on OS/arch
-        # For MVP, a simple placeholder.
+        # For MVP, a simple placeholder that works cross-platform.
         print("Ensuring llama.cpp binary is available (placeholder)...")
-        # In a real scenario, it would read from a separate registry for binaries
-        # and download the correct one for system.get_os_info() and system.get_cpu_arch()
         bin_dir = Path(paths.get_bin_dir())
         bin_dir.mkdir(parents=True, exist_ok=True)
-        dummy_binary_path = bin_dir / "llama_cpp_dummy_binary"
+
+        # A simple python script that sleeps is a good cross-platform placeholder server.
+        dummy_binary_path = bin_dir / "dummy_llama_server.py"
+
         if not dummy_binary_path.exists():
+            dummy_script_content = (
+                "import time\n"
+                "import sys\n"
+                "print(f'Dummy llama.cpp server started with args: {sys.argv}')\n"
+                "print('Process will sleep for an hour to simulate a running server.')\n"
+                "time.sleep(3600)\n"
+            )
             with open(dummy_binary_path, "w") as f:
-                f.write("#!/bin/bash\necho 'Dummy llama.cpp binary executed'")
-            os.chmod(dummy_binary_path, 0o755) # Make executable
+                f.write(dummy_script_content)
+        
         return dummy_binary_path
 
 if __name__ == "__main__":
