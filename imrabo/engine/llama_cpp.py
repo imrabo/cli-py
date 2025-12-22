@@ -1,135 +1,59 @@
-import subprocess
 import os
-import time
-import sys # Added sys import
-from pathlib import Path
+from typing import Iterator
 
-from imrabo.internal import paths
-from imrabo.internal.logging import get_logger
-from imrabo.internal.constants import RUNTIME_HOST, RUNTIME_PORT
+# Make sure llama_cpp-python is installed as per Phase 1
+from llama_cpp import Llama
 
-logger = get_logger()
+from imrabo.engine.base import LLMEngine
 
-class LlamaCppBinary:
-    def __init__(self, binary_path: Path, model_path: Path):
-        self.binary_path = binary_path
-        self.model_path = model_path
-        self.process: subprocess.Popen | None = None
-        logger.info(f"LlamaCppBinary initialized with binary: {binary_path}, model: {model_path}")
+class LlamaCppEngine(LLMEngine):
+    def __init__(self):
+        self.llm = None
 
-    def start_server(self, host: str = RUNTIME_HOST, port: int = RUNTIME_PORT):
-        if not self.binary_path.exists():
-            logger.error(f"Llama.cpp binary not found at {self.binary_path}")
-            return False
-        if not self.model_path.exists():
-            logger.error(f"Model GGUF file not found at {self.model_path}")
-            return False
+    def load(self, model_path: str):
+        if self.llm is not None:
+            self.unload() # Ensure any previously loaded model is unloaded
 
-        if self.is_server_running():
-            logger.info("Llama.cpp server already running.")
-            return True
-
-        # Real llama.cpp server might be a separate executable or specific arguments.
-        command = []
-        if str(self.binary_path).endswith(".py"):
-            command.append(sys.executable) # Add python interpreter
-        
-        command.append(str(self.binary_path))
-
-        # Add arguments for the real llama.cpp server. The dummy script will just ignore them.
-        command.extend([
-            "-m", str(self.model_path),
-            "--host", host,
-            "--port", str(port),
-            "-c", "4096", # Context size
-            "-n", "-1",  # Infinite generation
-            "-t", "4",   # Threads
-            "--mlock" # Lock model into RAM
-        ])
-        
-        # Redirect stdout/stderr to files for debugging and to prevent blocking
-        log_dir = Path(paths.get_app_data_dir()) / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        stdout_log = open(log_dir / "llama_cpp_stdout.log", "a")
-        stderr_log = open(log_dir / "llama_cpp_stderr.log", "a")
-
+        print(f"Loading Llama.cpp model from: {model_path}")
         try:
-            self.process = subprocess.Popen(
-                command,
-                stdout=stdout_log,
-                stderr=stderr_log,
-                creationflags=subprocess.DETACHED_PROCESS if os.name == 'nt' else 0, # Detach on Windows
-                start_new_session=True if os.name != 'nt' else False # Detach on Unix-like
+            n_ctx = int(os.environ.get("IMRABO_CTX", 4096))
+            n_threads = int(os.environ.get("IMRABO_THREADS", os.cpu_count() - 1 if os.cpu_count() > 1 else 1))
+            verbose = os.environ.get("IMRABO_VERBOSE", "False").lower() == "true"
+
+            self.llm = Llama(
+                model_path=str(model_path),
+                n_ctx=n_ctx,
+                n_threads=n_threads,
+                verbose=verbose,
             )
-            logger.info(f"Started llama.cpp server with PID: {self.process.pid} using command: {' '.join(command)}")
-            # Give it a moment to start
-            time.sleep(3) 
-            return True
+            print("Llama.cpp model loaded successfully.")
         except Exception as e:
-            logger.error(f"Failed to start llama.cpp server: {e}")
-            if self.process:
-                self.process.kill()
-            return False
+            print(f"Error loading Llama.cpp model: {e}")
+            self.llm = None
+            raise
 
-    def stop_server(self):
-        if self.process and self.is_server_running():
-            logger.info(f"Stopping llama.cpp server with PID: {self.process.pid}")
-            self.process.terminate() # SIGTERM
-            self.process.wait(timeout=5) # Wait for a few seconds
-            if self.process.poll() is None: # If still running
-                logger.warning(f"Llama.cpp server PID {self.process.pid} did not terminate gracefully. Killing...")
-                self.process.kill() # SIGKILL
-            self.process = None
-            logger.info("Llama.cpp server stopped.")
-        else:
-            logger.info("Llama.cpp server not running or already stopped.")
+    def generate(self, prompt: str) -> Iterator[str]:
+        if self.llm is None:
+            raise RuntimeError("Model not loaded. Call load() first.")
 
-    def is_server_running(self):
-        if self.process:
-            return self.process.poll() is None
-        return False
+        # Default parameters from the plan, can be made configurable later
+        for chunk in self.llm(
+            prompt,
+            max_tokens=512,
+            stream=True,
+            temperature=0.7,
+        ):
+            # Check if 'choices' and 'text' exist in the chunk
+            if "choices" in chunk and len(chunk["choices"]) > 0 and "text" in chunk["choices"][0]:
+                yield chunk["choices"][0]["text"]
+            else:
+                # Handle cases where chunk might not contain expected data
+                # For example, during stop tokens, it might just be {'content': ''}
+                pass # Or log a warning
 
-# Example usage (for testing)
-if __name__ == "__main__":
-    # Ensure dummy binary and model exist for testing
-    app_data_dir = Path(paths.get_app_data_dir())
-    bin_dir = Path(paths.get_bin_dir())
-    models_dir = Path(paths.get_models_dir())
-    
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    models_dir.mkdir(parents=True, exist_ok=True)
-
-    dummy_binary_path = bin_dir / "llama_cpp_dummy_binary"
-    dummy_model_path = models_dir / "dummy_model.gguf"
-
-    if not dummy_binary_path.exists():
-        with open(dummy_binary_path, "w") as f:
-            f.write("#!/bin/bash\necho 'Dummy llama.cpp binary executed'\n")
-        os.chmod(dummy_binary_path, 0o755)
-
-    if not dummy_model_path.exists():
-        with open(dummy_model_path, "w") as f:
-            f.write("DUMMY_MODEL_CONTENT")
-
-    # The actual llama.cpp server usually needs specific parameters
-    # The dummy binary here won't actually start a server.
-    # This is just for testing the subprocess management.
-    
-    llama_cpp = LlamaCppBinary(dummy_binary_path, dummy_model_path)
-    
-    print("\n--- Testing Llama.cpp Server Management ---")
-    
-    # Try starting
-    print("Attempting to start server...")
-    if llama_cpp.start_server(port=8080):
-        print(f"Server process started. Running: {llama_cpp.is_server_running()}")
-        time.sleep(1) # Give it a moment
-
-        # Try stopping
-        print("Attempting to stop server...")
-        llama_cpp.stop_server()
-        print(f"Server process running after stop: {llama_cpp.is_server_running()}")
-    else:
-        print("Failed to start server.")
-
-    print("\n--- Test complete ---")
+    def unload(self):
+        if self.llm is not None:
+            print("Unloading Llama.cpp model.")
+            # Explicitly delete the Llama instance to free resources
+            del self.llm
+            self.llm = None

@@ -1,6 +1,7 @@
 import typer
 import asyncio
 from pathlib import Path
+import sys # For Python version check
 
 from imrabo.internal import paths
 from imrabo.internal.logging import get_logger
@@ -32,6 +33,7 @@ def doctor():
     typer.echo(typer.style("System Information:", fg=typer.colors.BLUE, bold=True))
     typer.echo(f"  OS: {system.get_os_info()}")
     typer.echo(f"  Architecture: {system.get_cpu_arch()}")
+    typer.echo(f"  Python Version: {sys.version.split()[0]}")
     typer.echo(f"  Total RAM: {system.get_total_ram_gb()} GB")
     typer.echo("")
 
@@ -47,12 +49,10 @@ def doctor():
             typer.echo(f"  Runtime API: {typer.style('Accessible', fg=typer.colors.GREEN)}")
             typer.echo(f"  Runtime Status: {runtime_response.get('status').upper()}")
             typer.echo(f"  Runtime PID: {runtime_response.get('runtime_pid')}")
-            typer.echo(f"  Llama.cpp Server: {runtime_response.get('llama_cpp_server').upper()}")
+            typer.echo(f"  LLM Engine: {runtime_response.get('llm_engine', 'UNKNOWN').upper()}") # Updated check
             typer.echo(f"  Model: {runtime_response.get('model').upper()}")
             if runtime_response.get('model_details'):
                 typer.echo(f"    Path: {runtime_response['model_details'].get('path')}")
-            if runtime_response.get('llama_cpp_api_url'):
-                typer.echo(f"    Llama.cpp API: {runtime_response['llama_cpp_api_url']}")
         else:
             typer.echo(f"  Runtime API: {typer.style('Not Running or Unresponsive', fg=typer.colors.YELLOW)}")
             all_passed = False
@@ -80,29 +80,27 @@ def doctor():
         return token_file.exists() and token_file.stat().st_size > 0, f"Token file '{token_file}' not found or empty."
     check("Runtime token file", check_token_file)
     
-    # Check for downloaded binaries and models (using ModelManager logic)
-    typer.echo(typer.style("\nModel & Binary Availability (local):", fg=typer.colors.BLUE, bold=True))
-    model_manager = ModelManager() # Instantiate to use its check logic
+    # --- LLM Engine Specific Checks ---
+    typer.echo(typer.style("\nLLM Engine Checks:", fg=typer.colors.BLUE, bold=True))
 
-    def check_llama_cpp_binary():
-        # This will simulate the logic in ModelManager for MVP
-        bin_dir = Path(paths.get_bin_dir())
-        dummy_binary_path = bin_dir / "llama_cpp_dummy_binary" # As created in ModelManager
-        # In a real impl, ModelManager would return the actual binary path
-        return dummy_binary_path.exists() and dummy_binary_path.is_file(), f"Llama.cpp binary not found at '{dummy_binary_path}'. Try 'imrabo start' to download."
-    check("Llama.cpp binary", check_llama_cpp_binary)
+    def check_llama_cpp_import():
+        try:
+            import llama_cpp
+            return True, ""
+        except ImportError:
+            return False, "The 'llama_cpp' library is not installed or accessible. Please run `pip install llama-cpp-python`."
+    check("llama-cpp-python import", check_llama_cpp_import)
 
-    def check_model_files():
-        selected_model_config = model_manager.get_preferred_model()
-        if not selected_model_config:
-            return False, "No preferred model could be determined based on system RAM and registry."
-        
-        model_variant = selected_model_config["variants"][0]
-        model_filename = f"{selected_model_config['id']}-{model_variant['id']}.gguf"
-        model_path = Path(paths.get_models_dir()) / model_filename
-        
-        return model_path.exists() and model_path.is_file(), f"Model file '{model_path}' not found. Try 'imrabo start' to download."
-    check("Model file", check_model_files)
+    def check_model_availability():
+        # Using ModelManager to ensure model is available (downloads if needed, verifies checksum)
+        model_manager = ModelManager()
+        model_path = model_manager.ensure_model_available()
+        if model_path:
+            return True, f"Model available at: {model_path}"
+        else:
+            return False, "Failed to find or download a suitable model. Check RAM, disk space, and network."
+    check("Model presence and integrity", check_model_availability)
+
 
     typer.echo("\n--- Doctor Check Summary ---")
     if all_passed:

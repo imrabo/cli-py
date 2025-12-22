@@ -1,42 +1,39 @@
-import typer
 import asyncio
+import typer
 
 from imrabo.cli import core
 from imrabo.cli.client import RuntimeClient
-from imrabo.internal.logging import get_logger
 
-logger = get_logger()
+def run():
+    client = RuntimeClient()
 
-def run(prompt: str):
-    """
-    Run a prompt through the local AI model.
-    """
-    client = core.RuntimeClient()
-
-    # Check if runtime is active, if not, try to start it
     if not core.is_runtime_active(client):
-        typer.echo("imrabo runtime is not active. Attempting to start it...")
+        typer.echo("Starting runtime...")
         if not core.start_runtime():
-            typer.echo(typer.style("Error: Could not start imrabo runtime. Please run 'imrabo start' manually and check logs.", fg=typer.colors.RED))
-            raise typer.Exit(1)
-        typer.echo("Runtime started successfully.")
-
-    typer.echo("Sending prompt to runtime...")
-    
-    async def stream_response():
-        try:
-            # Use a context manager to handle the async generator
-            async for chunk in client.run_prompt(prompt):
-                typer.echo(chunk, nl=False)
-            typer.echo("") # Final newline
-        except RuntimeError as e:
-            typer.echo(f"\n{typer.style('Error from runtime:', fg=typer.colors.RED)} {e}", err=True)
-            logger.error("Error while running prompt", exc_info=e)
-            raise typer.Exit(1)
-        except Exception as e:
-            typer.echo(f"\n{typer.style('An unexpected error occurred:', fg=typer.colors.RED)} {e}", err=True)
-            logger.error("Unexpected error while running prompt", exc_info=e)
+            typer.echo("Failed to start runtime")
             raise typer.Exit(1)
 
-    asyncio.run(stream_response())
+    typer.echo("\nimrabo chat started. Type /exit to quit.\n")
 
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        while True:
+            user_input = input("You: ").strip()
+
+            if user_input.lower() in {"/exit", "exit", "quit"}:
+                print("Goodbye.")
+                break
+
+            print("Assistant: ", end="", flush=True)
+
+            async def run_once():
+                async for delta in client.run_prompt(user_input):
+                    print(delta, end="", flush=True)
+
+            loop.run_until_complete(run_once())
+            print()
+
+    finally:
+        loop.close()

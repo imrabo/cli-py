@@ -1,128 +1,149 @@
-import httpx
 import json
+import httpx
+import codecs
 from typing import AsyncGenerator
 from pathlib import Path
 
 from imrabo.internal import paths
 from imrabo.internal.constants import RUNTIME_HOST, RUNTIME_PORT
-from imrabo.runtime.security import load_token, generate_token, save_token # Need save_token if it's not generated yet
+from imrabo.runtime.security import load_token, generate_token, save_token
 from imrabo.internal.logging import get_logger
 
-logger = get_logger()
+logger = get_logger(__name__)
+
 
 class RuntimeClient:
+    """
+    Thin async client for communicating with the imrabo runtime daemon.
+
+    Guarantees:
+    - yields TEXT DELTAS only (never repeated text)
+    - clean stream termination
+    - correct SSE parsing
+    """
+
     def __init__(self, host: str = RUNTIME_HOST, port: int = RUNTIME_PORT):
         self.base_url = f"http://{host}:{port}"
         self._token: str | None = None
         self._load_or_generate_token()
 
-    def _load_or_generate_token(self):
+    # ------------------------------------------------------------------
+    # Auth
+    # ------------------------------------------------------------------
+
+    def _load_or_generate_token(self) -> None:
         token_file = Path(paths.get_runtime_token_file())
-        self._token = load_token(token_file)
-        if not self._token:
-            self._token = generate_token()
-            save_token(self._token, token_file)
-            logger.info("Generated new runtime token.")
-        else:
-            logger.info("Loaded existing runtime token.")
+        token = load_token(token_file)
 
-    def _get_headers(self):
-        return {"Authorization": f"Bearer {self._token}"}
+        if not token:
+            token = generate_token()
+            save_token(token, token_file)
+            logger.info("Generated new runtime token")
 
-    async def _request(self, method: str, endpoint: str, **kwargs):
-        try:
-            async with httpx.AsyncClient(base_url=self.base_url) as client:
-                response = await client.request(method, endpoint.lstrip('/'), headers=self._get_headers(), **kwargs)
-                response.raise_for_status()
-                return response
-        except httpx.RequestError as exc:
-            logger.error(f"HTTP request failed to {self.base_url}/{endpoint}: {exc}")
-            raise RuntimeError(f"Could not connect to runtime: {exc}")
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"HTTP status error for {self.base_url}/{endpoint}: {exc.response.status_code} - {exc.response.text}")
-            raise RuntimeError(f"Runtime error: {exc.response.status_code} - {exc.response.text}")
+        self._token = token
+
+    def _headers(self) -> dict:
+        return {
+            "Authorization": f"Bearer {self._token}",
+            "Content-Type": "application/json",
+        }
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     async def health(self) -> dict:
-        response = await self._request("GET", "/health")
-        return response.json()
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(f"{self.base_url}/health", headers=self._headers())
+            r.raise_for_status()
+            return r.json()
 
     async def status(self) -> dict:
-        response = await self._request("GET", "/status")
-        return response.json()
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(f"{self.base_url}/status", headers=self._headers())
+            r.raise_for_status()
+            return r.json()
 
     async def shutdown(self) -> dict:
-        response = await self._request("POST", "/shutdown")
-        return response.json()
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.post(f"{self.base_url}/shutdown", headers=self._headers())
+            r.raise_for_status()
+            return r.json()
+
+    # ------------------------------------------------------------------
+    # Streaming inference (FIXED)
+    # ------------------------------------------------------------------
 
     async def run_prompt(self, prompt: str) -> AsyncGenerator[str, None]:
-        url = f"{self.base_url.rstrip('/')}/run"
-        headers = self._get_headers()
-        json_payload = {"prompt": prompt}
+        """
+        Streams response from /run and yields ONLY incremental text deltas.
+        """
+
+        url = f"{self.base_url}/run"
+        payload = {"prompt": prompt}
+
+        decoder = codecs.getincrementaldecoder("utf-8")()
+        last_text = ""
 
         try:
-            async with httpx.AsyncClient() as client:
-                async with client.stream("POST", url, headers=headers, json=json_payload, timeout=None) as response:
-                    # Manually check for HTTP errors before trying to stream
+            async with httpx.AsyncClient(timeout=None) as client:
+                async with client.stream(
+                    "POST",
+                    url,
+                    headers=self._headers(),
+                    json=payload,
+                ) as response:
+
                     if response.status_code >= 400:
-                        # Consume the error response body before raising
-                        error_body = await response.aread()
-                        raise RuntimeError(f"Runtime returned an error: {response.status_code} - {error_body.decode()}")
+                        body = await response.aread()
+                        raise RuntimeError(
+                            f"Runtime error {response.status_code}: "
+                            f"{body.decode(errors='ignore')}"
+                        )
 
-                    # Stream the response content
                     async for chunk in response.aiter_bytes():
-                        lines = chunk.decode('utf-8').split('\n')
-                        for line in lines:
-                            if line.strip().startswith("data: "):
-                                try:
-                                    json_data = json.loads(line[len("data: "):])
-                                    if "content" in json_data:
-                                        yield json_data["content"]
-                                    if json_data.get("stop"):
-                                        return
-                                except json.JSONDecodeError:
-                                    logger.warning(f"Failed to decode JSON from SSE: {line}")
-                                    continue
+                        if not chunk:
+                            return  # clean close
+
+                        text = decoder.decode(chunk)
+
+                        for line in text.splitlines():
+                            line = line.strip()
+                            if not line:
+                                continue
+
+                            # SSE format
+                            if line.startswith("data:"):
+                                line = line[len("data:"):].strip()
+
+                            try:
+                                data = json.loads(line)
+                            except json.JSONDecodeError:
+                                continue
+
+                            full_text = data.get("content", "")
+                            stop = data.get("stop", False)
+
+                            # ✅ DELTA EXTRACTION (THE KEY FIX)
+                            if full_text.startswith(last_text):
+                                delta = full_text[len(last_text):]
+                            else:
+                                delta = full_text  # fallback safety
+
+                            if delta:
+                                yield delta
+                                last_text = full_text
+
+                            if stop is True:
+                                return
+
         except httpx.RequestError as exc:
-            logger.error(f"Streaming request failed to {url}: {exc}")
-            raise RuntimeError(f"Could not connect to runtime for prompt: {exc}")
-        # The RuntimeError is now raised from within the try block
+            logger.error("Streaming connection failed", exc_info=exc)
+            raise RuntimeError("Streaming connection failed") from exc
 
+    # ------------------------------------------------------------------
+    # Debug
+    # ------------------------------------------------------------------
 
-if __name__ == "__main__":
-    async def test_client():
-        client = RuntimeClient()
-        print(f"Base URL: {client.base_url}")
-
-        print("\n--- Testing Health Endpoint ---")
-        try:
-            health_response = await client.health()
-            print(f"Health: {health_response}")
-        except Exception as e:
-            print(f"Health check failed: {e}")
-
-        print("\n--- Testing Status Endpoint ---")
-        try:
-            status_response = await client.status()
-            print(f"Status: {status_response}")
-        except Exception as e:
-            print(f"Status check failed: {e}")
-
-        print("\n--- Testing Run Prompt Endpoint (simulated) ---")
-        try:
-            print("Prompting: 'Tell me a short story.'")
-            async for chunk in client.run_prompt("Tell me a short story."):
-                print(chunk, end="")
-            print("\n")
-        except Exception as e:
-            print(f"Run prompt failed: {e}")
-
-        # Note: Shutdown test will actually shut down the server if it's running
-        # print("\n--- Testing Shutdown Endpoint ---")
-        # try:
-        #     shutdown_response = await client.shutdown()
-        #     print(f"Shutdown: {shutdown_response}")
-        # except Exception as e:
-        #     print(f"Shutdown failed: {e}")
-
-    # To run the test, you need to have a runtime server running in the background.
-    # asyncio.run(test_client())
+    def __repr__(self) -> str:
+        return f"<RuntimeClient base_url={self.base_url}>"

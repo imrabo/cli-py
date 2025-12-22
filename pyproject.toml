@@ -5,12 +5,13 @@ description = "A local-first AI CLI runtime"
 authors = [{ name = "imrabo", email = "author@example.com" }]
 dependencies = [
     "typer>=0.9.0",
-    "fastapi>=0.104.1",
-    "uvicorn[standard]>=0.24.0",
+    "fastapi>=0.110.0,<0.111.0",
+    "uvicorn[standard]>=0.29.0,<0.30.0",
     "requests>=2.31.0",
     "httpx>=0.25.0",
     "psutil>=5.9.0",
     "structlog>=23.1.0",
+    "llama-cpp-python>=0.2.30,<0.3.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
