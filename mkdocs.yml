@@ -1,0 +1,124 @@
+site_name: imrabo Documentation
+site_url: https://imrabo.github.io/imrabo-cli-py/
+repo_url: https://github.com/imrabo/imrabo-cli-py
+repo_name: imrabo/imrabo-cli-py
+edit_uri: blob/main/docs/
+
+theme:
+  name: material
+  custom_dir: docs/overrides # For custom CSS/JS if needed
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - toc.integrate
+    - content.code.copy
+    - content.tabs
+    - content.tooltips
+    - search.highlight
+    - search.suggest
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/imrabo/imrabo-cli-py
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+      linenums: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.arithmatex:
+      generic: true
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Concepts: getting-started/concepts.md
+      - FAQ: getting-started/faq.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Design Principles: architecture/design-principles.md
+      - Process Model: architecture/process-model.md
+      - Kernel: architecture/kernel.md
+      - Daemon: architecture/daemon.md
+      - CLI: architecture/cli.md
+      - Engine: architecture/engine.md
+      - Registry: architecture/registry.md
+  - Core Contracts:
+      - Execution Lifecycle: core-contracts/execution-lifecycle.md
+      - ExecutionRequest: core-contracts/execution-request.md
+      - ExecutionResult: core-contracts/execution-result.md
+      - Event Model: core-contracts/event-model.md
+      - Compatibility Policy: core-contracts/compatibility-policy.md
+  - CLI Reference:
+      - imrabo: cli-reference/imrabo.md
+      - install: cli-reference/install.md
+      - start: cli-reference/start.md
+      - stop: cli-reference/stop.md
+      - run: cli-reference/run.md
+      - status: cli-reference/status.md
+      - doctor: cli-reference/doctor.md
+  - Plugins:
+      - Plugin System: plugins/plugin-system.md
+      - Engine Plugins: plugins/engine-plugins.md
+      - Storage Plugins: plugins/storage-plugins.md
+      - UI Plugins: plugins/ui-plugins.md
+      - Orchestration Plugins: plugins/orchestration-plugins.md
+  - Adapters:
+      - HTTP Adapter: adapters/http-adapter.md
+      - FastAPI Adapter: adapters/fastapi-adapter.md
+      - llama.cpp Adapter: adapters/llama-cpp-adapter.md
+      - Future Adapters: adapters/future-adapters.md
+  - Observability:
+      - Logging: observability/logging.md
+      - Events: observability/events.md
+      - Tracing: observability/tracing.md
+      - Debugging: observability/debugging.md
+  - Development:
+      - Repository Structure: development/repo-structure.md
+      - Contributing: development/contributing.md
+      - Adding an Engine: development/adding-engine.md
+      - Adding a Plugin: development/adding-plugin.md
+      - Testing Strategy: development/testing.md
+      - Release Process: development/release-process.md
+  - Governance:
+      - Invariants: governance/invariants.md
+      - Breaking Changes: governance/breaking-changes.md
+      - Deprecation Policy: governance/deprecation.md
+  - Roadmap: roadmap.md
