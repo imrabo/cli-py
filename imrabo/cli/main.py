@@ -8,6 +8,7 @@ from imrabo.cli.commands import (
     doctor,
     run,
     version,
+    install,
 )
 
 app = typer.Typer(
@@ -23,6 +24,7 @@ app.command("status")(status.status)
 app.command("doctor")(doctor.doctor)
 app.command("run")(run.run)
 app.command("version")(version.version)
+app.command("install")(install.install)
 
 if __name__ == "__main__":
     app()

@@ -7,81 +7,104 @@ import structlog
 
 from imrabo.internal import paths
 
-def configure_logging():
+_LOGGING_CONFIGURED = False
+
+def setup_logging(log_level_name: str = "INFO", log_file_path: Path = None, console_output: bool = False):
     """
     Configure logging for the application.
     - Uses structlog for structured logging.
-    - Writes JSON logs to a rotating file in the app data directory.
-    - Console output is kept human-readable for Typer.
-    - Log level can be set with the IMRABO_LOG_LEVEL environment variable.
+    - Writes JSON logs to a rotating file in the app data directory if log_file_path is provided.
+    - Can optionally send human-readable or structured logs to console.
+    - Log level can be set with the IMRABO_LOG_LEVEL environment variable or function argument.
     """
-    log_level_name = os.environ.get("IMRABO_LOG_LEVEL", "INFO").upper()
-    log_level = getattr(logging, log_level_name, logging.INFO)
+    global _LOGGING_CONFIGURED
+    if _LOGGING_CONFIGURED:
+        return # Prevent re-configuring logging
 
-    log_dir = Path(paths.get_app_data_dir()) / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "imrabo.log.json"
+    # Determine log level
+    effective_log_level_name = os.environ.get("IMRABO_LOG_LEVEL", log_level_name).upper()
+    log_level = getattr(logging, effective_log_level_name, logging.INFO)
 
-    # Configure file handler for JSON logs
-    file_handler = logging.handlers.RotatingFileHandler(
-        log_file,
-        maxBytes=5 * 1024 * 1024,  # 5 MB
-        backupCount=5,
-    )
-    # The file handler will be used by structlog's underlying logging setup
+    handlers = []
+
+    # File handler for JSON logs
+    if log_file_path:
+        log_file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_file_path,
+            maxBytes=5 * 1024 * 1024,  # 5 MB
+            backupCount=5,
+        )
+        # File handler will use a JSONRenderer
+        file_handler.setFormatter(structlog.stdlib.ProcessorFormatter(
+            processor=structlog.dev.ConsoleRenderer(colors=False) if not log_file_path.name.endswith('.json') else structlog.processors.JSONRenderer(),
+            foreign_pre_chain=[
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                structlog.stdlib.PositionalArgumentsFormatter(),
+                structlog.processors.TimeStamper(fmt="iso"),
+            ]
+        ))
+        handlers.append(file_handler)
+
+    # Console handler for human-readable output
+    if console_output:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(structlog.stdlib.ProcessorFormatter(
+            processor=structlog.dev.ConsoleRenderer(),
+            foreign_pre_chain=[
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                structlog.stdlib.PositionalArgumentsFormatter(),
+                structlog.processors.TimeStamper(fmt="iso"),
+            ]
+        ))
+        handlers.append(console_handler)
     
+    # If no handlers, create a NullHandler to prevent "No handlers could be found for logger" messages
+    if not handlers:
+        handlers.append(logging.NullHandler())
+
     # Mute noisy loggers
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn").setLevel(logging.WARNING)
 
-    # Configure structlog
+    # Configure structlog processors
+    processors = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter, # Key to integrate with stdlib handlers
+    ]
+
     structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.UnicodeDecoder(),
-            # This processor is the one that sends the log to the file handler as JSON
-            structlog.stdlib.render_to_log_kwargs,
-        ],
+        processors=processors,
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
 
-    # We need to hook structlog into the standard logging system so the file handler works.
-    # We create a handler that renders JSON.
-    json_renderer = structlog.processors.JSONRenderer()
-    
-    # We create a formatter that will just pass the message through,
-    # as structlog has already processed it.
-    class StructlogFormatter(logging.Formatter):
-        def format(self, record):
-            # structlog has already processed the log record if it's from structlog
-            # For standard library logs, we need to handle them.
-            if 'event' in record.__dict__:
-                return super().format(record)
-            
-            # This part is a bit tricky to get right. For now, we'll just let JSONRenderer handle it.
-            # A simpler approach might be to just use a standard formatter for stdlib logs.
-            # Let's simplify and just focus on structlog's output for now.
-            return json_renderer(None, None, record.__dict__)
-
-    # Re-configuring basicConfig to use our file handler
+    # Configure standard Python logger with handlers
     logging.basicConfig(
         level=log_level,
-        format="%(message)s", # structlog will handle the formatting
-        handlers=[file_handler],
+        handlers=handlers,
     )
-
-
-# A single call to configure logging for the entire application
-configure_logging()
+    _LOGGING_CONFIGURED = True
 
 def get_logger(name: str | None = None):
     # All modules can now just call get_logger()
     return structlog.get_logger(name)
+
+# Default logging configuration for application startup
+# This will be called once on import if not explicitly configured by an entry point.
+# It ensures some logging is always set up.
+if not _LOGGING_CONFIGURED:
+    default_log_dir = Path(paths.get_app_data_dir()) / "logs"
+    default_log_file = default_log_dir / "imrabo.log.json"
+    setup_logging(log_file_path=default_log_file, console_output=True)
 

@@ -1,9 +1,10 @@
 import typer
 import asyncio
+import json
 from imrabo.cli.client import RuntimeClient
 from imrabo.internal.logging import get_logger
 
-logger = get_logger()
+logger = get_logger(__name__)
 
 def status():
     """
@@ -17,14 +18,9 @@ def status():
         
         runtime_status = asyncio.run(get_runtime_status())
         
-        typer.echo(f"\nRuntime Status: {runtime_status.get('status', 'unknown').upper()}")
-        typer.echo(f"  PID: {runtime_status.get('runtime_pid', 'N/A')}")
-        typer.echo(f"  Model Status: {runtime_status.get('model', 'N/A').upper()}")
-        if runtime_status.get('model_details'):
-            typer.echo(f"    Model Name: {runtime_status['model_details'].get('name', 'N/A')}")
-            typer.echo(f"    Model Path: {runtime_status['model_details'].get('path', 'N/A')}")
-        typer.echo(f"  Llama.cpp Server: {runtime_status.get('llama_cpp_server', 'N/A').upper()}")
-        typer.echo(f"  Llama.cpp API URL: {runtime_status.get('llama_cpp_api_url', 'N/A')}")
+        typer.echo("\n--- IMRABO Runtime Status ---")
+        typer.echo(json.dumps(runtime_status, indent=2))
+        typer.echo("----------------------------")
 
     except Exception as e:
         typer.echo(f"Could not connect to imrabo runtime. Is it running? Error: {e}")

@@ -6,10 +6,22 @@ from pathlib import Path
 
 from imrabo.internal import paths
 from imrabo.internal.constants import RUNTIME_HOST, RUNTIME_PORT
-from imrabo.runtime.security import load_token, generate_token, save_token
+# from imrabo.runtime.security import load_token, generate_token, save_token # This will be handled by daemon
 from imrabo.internal.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Placeholder for security functions, which will eventually be moved
+def load_token(path: Path) -> str | None:
+    return path.read_text().strip() if path.exists() else None
+
+def generate_token() -> str:
+    import secrets
+    return secrets.token_urlsafe(32)
+
+def save_token(token: str, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(token)
 
 
 class RuntimeClient:
@@ -71,19 +83,20 @@ class RuntimeClient:
             return r.json()
 
     # ------------------------------------------------------------------
-    # Streaming inference (FIXED)
+    # Streaming inference
     # ------------------------------------------------------------------
 
     async def run_prompt(self, prompt: str) -> AsyncGenerator[str, None]:
         """
-        Streams response from /run and yields ONLY incremental text deltas.
+        Streams response from /run and yields ONLY incremental text deltas,
+        adapting to the new ExecutionResult structure.
         """
 
         url = f"{self.base_url}/run"
-        payload = {"prompt": prompt}
+        payload = {"prompt": prompt} # The adapter translates this to ExecutionRequest.input
 
         decoder = codecs.getincrementaldecoder("utf-8")()
-        last_text = ""
+        last_full_content = ""
 
         try:
             async with httpx.AsyncClient(timeout=None) as client:
@@ -103,39 +116,40 @@ class RuntimeClient:
 
                     async for chunk in response.aiter_bytes():
                         if not chunk:
-                            return  # clean close
+                            continue # Keep reading until final empty chunk or end of stream.
 
-                        text = decoder.decode(chunk)
+                        text = decoder.decode(chunk, final=False) # Decode incrementally
 
                         for line in text.splitlines():
                             line = line.strip()
-                            if not line:
+                            if not line.startswith("data:"):
                                 continue
-
-                            # SSE format
-                            if line.startswith("data:"):
-                                line = line[len("data:"):].strip()
 
                             try:
-                                data = json.loads(line)
+                                # The adapter now sends ExecutionResult.output directly
+                                # This will contain {'content': '...', 'stop': False/True}
+                                data = json.loads(line[len("data:"):].strip())
                             except json.JSONDecodeError:
+                                logger.warning(f"JSON decode error in stream: {line}")
                                 continue
 
-                            full_text = data.get("content", "")
-                            stop = data.get("stop", False)
+                            current_content = data.get("content", "")
+                            stop_signal = data.get("stop", False)
 
-                            # ✅ DELTA EXTRACTION (THE KEY FIX)
-                            if full_text.startswith(last_text):
-                                delta = full_text[len(last_text):]
+                            # Extract delta
+                            if current_content.startswith(last_full_content):
+                                delta = current_content[len(last_full_content):]
                             else:
-                                delta = full_text  # fallback safety
-
+                                # This can happen if the adapter sends a complete message
+                                # or if there's a reset. For now, treat as full update.
+                                delta = current_content
+                                
                             if delta:
                                 yield delta
-                                last_text = full_text
+                                last_full_content = current_content
 
-                            if stop is True:
-                                return
+                            if stop_signal:
+                                return # End of stream
 
         except httpx.RequestError as exc:
             logger.error("Streaming connection failed", exc_info=exc)

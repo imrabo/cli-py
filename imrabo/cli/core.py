@@ -243,7 +243,8 @@ def start_runtime() -> bool:
     logger.info("Starting imrabo runtime process")
 
     python_exec = sys.executable
-    command = [python_exec, "-m", "imrabo.runtime.server"]
+    # Point to the new adapter and remove model/variant args
+    command = [python_exec, "-m", "imrabo.adapters.http.fastapi_server"]
 
     creationflags = subprocess.DETACHED_PROCESS if sys.platform == "win32" else 0
     preexec_fn = None if sys.platform == "win32" else os.setsid
@@ -251,8 +252,6 @@ def start_runtime() -> bool:
     try:
         process = subprocess.Popen(
             command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
             creationflags=creationflags,
             preexec_fn=preexec_fn,
             close_fds=True,

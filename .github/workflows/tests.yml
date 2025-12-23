@@ -1,0 +1,119 @@
+name: imrabo CI Tests
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]" pytest pytest-asyncio httpx requests-mock typer structlog psutil
+
+    - name: Run Kernel Contract Validation Tests (GATE)
+      # Any failure here MUST block the build.
+      # These are the most critical tests.
+      run: pytest tests/kernel/contracts/
+
+    - name: Run Kernel Lifecycle State Machine Tests (GATE)
+      # Any failure here MUST block the build.
+      run: pytest tests/kernel/lifecycle/
+
+    - name: Run Kernel Failure Model Tests (GATE)
+      # Any failure here MUST block the build.
+      run: pytest tests/kernel/failure-model/
+
+    - name: Run CLI Grammar & Parsing Tests (GATE)
+      # Any failure here MUST block the build.
+      run: pytest tests/cli/grammar/
+
+    - name: Run CLI Backward Compatibility Tests (GATE)
+      # Failures here indicate a breaking change in CLI output.
+      run: pytest tests/cli/backward-compat/
+
+    - name: Run CLI Daemon Interaction Tests (GATE)
+      # Failures here indicate issues in how CLI interacts with daemon.
+      run: pytest tests/cli/interaction/
+
+    - name: Run Daemon Lifecycle Tests (GATE)
+      # Ensures daemon start/stop and PID management is robust.
+      run: pytest tests/daemon/lifecycle/
+
+    - name: Run Daemon Concurrency Tests (GATE)
+      # Critical for daemon stability under load.
+      run: pytest tests/daemon/concurrency/
+    
+    - name: Run Daemon Crash & Recovery Tests (GATE)
+      # Verifies daemon resilience.
+      run: pytest tests/daemon/crash-recovery/
+
+    - name: Run Engine Adapter Tests (GATE)
+      # Ensures engine adapters adhere to contract and handle failures.
+      run: pytest tests/adapters/engine/
+    
+    - name: Run Model Registry & Artifact Tests (GATE)
+      # Verifies artifact resolution and storage.
+      run: pytest tests/registry/
+
+    - name: Run Plugin System Isolation Tests (INFORMATIONAL - for now)
+      # Failures here indicate a bad plugin, not necessarily a core issue.
+      # However, failures in isolation *mechanisms* are critical.
+      run: pytest tests/plugins/isolation/
+      # continue-on-error: true # Might set to true for informational tests
+
+    - name: Run Plugin Capability Registration Tests (INFORMATIONAL - for now)
+      run: pytest tests/plugins/capabilities/
+      # continue-on-error: true
+
+    - name: Run Observability Logging Tests (GATE)
+      # Ensures logs are reliable for debugging.
+      run: pytest tests/observability/logging/
+
+    - name: Run Observability Events Tests (GATE)
+      # Ensures event stream integrity.
+      run: pytest tests/observability/events/
+
+    - name: Run Security Tests (GATE)
+      # Critical for system integrity.
+      run: pytest tests/security/
+    
+    - name: Run Performance & Resource Tests (INFORMATIONAL)
+      # Monitors for regressions, does not block merge usually.
+      run: pytest tests/performance/
+      # continue-on-error: true
+
+    - name: Run Backward Compatibility Tests (Kernel Data) (CRITICAL GATE)
+      # Explicitly blocks changes that break kernel data contracts.
+      run: pytest tests/backward-compatibility/
+    
+    # End-to-End tests often run in a separate, longer-running pipeline or manually
+    # - name: Run End-to-End Happy Path Scenarios (Manual/Scheduled)
+    #   run: pytest tests/end-to-end/happy-path/
+    #   continue-on-error: true
+    
+    # - name: Run End-to-End Degraded Environment Scenarios (Manual/Scheduled)
+    #   run: pytest tests/end-to-end/degraded/
+    #   continue-on-error: true
+
+    # - name: Run End-to-End Hostile Environment Tests (Manual/Scheduled)
+    #   run: pytest tests/end-to-end/hostile/
+    #   continue-on-error: true
+

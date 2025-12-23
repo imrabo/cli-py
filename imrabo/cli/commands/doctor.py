@@ -2,14 +2,15 @@ import typer
 import asyncio
 from pathlib import Path
 import sys # For Python version check
+import json
 
 from imrabo.internal import paths
 from imrabo.internal.logging import get_logger
-from imrabo.runtime import system
+# from imrabo.runtime import system # This module no longer exists
 from imrabo.cli.client import RuntimeClient
-from imrabo.runtime.model_manager import ModelManager # To perform local checks
+from imrabo.adapters.storage_fs import FileSystemArtifactResolver # New resolver
 
-logger = get_logger()
+logger = get_logger(__name__)
 
 def doctor():
     """
@@ -31,10 +32,7 @@ def doctor():
 
     # --- System Checks ---
     typer.echo(typer.style("System Information:", fg=typer.colors.BLUE, bold=True))
-    typer.echo(f"  OS: {system.get_os_info()}")
-    typer.echo(f"  Architecture: {system.get_cpu_arch()}")
     typer.echo(f"  Python Version: {sys.version.split()[0]}")
-    typer.echo(f"  Total RAM: {system.get_total_ram_gb()} GB")
     typer.echo("")
 
     # --- Runtime Status ---
@@ -45,14 +43,9 @@ def doctor():
             return await client.status()
         
         runtime_response = asyncio.run(get_runtime_status())
-        if runtime_response.get('status') == 'running':
+        if runtime_response.get('status') == 'ok_from_kernel': # Updated status check based on FastAPI adapter placeholder
             typer.echo(f"  Runtime API: {typer.style('Accessible', fg=typer.colors.GREEN)}")
-            typer.echo(f"  Runtime Status: {runtime_response.get('status').upper()}")
-            typer.echo(f"  Runtime PID: {runtime_response.get('runtime_pid')}")
-            typer.echo(f"  LLM Engine: {runtime_response.get('llm_engine', 'UNKNOWN').upper()}") # Updated check
-            typer.echo(f"  Model: {runtime_response.get('model').upper()}")
-            if runtime_response.get('model_details'):
-                typer.echo(f"    Path: {runtime_response['model_details'].get('path')}")
+            typer.echo(f"  Full Status: {json.dumps(runtime_response, indent=2)}")
         else:
             typer.echo(f"  Runtime API: {typer.style('Not Running or Unresponsive', fg=typer.colors.YELLOW)}")
             all_passed = False
@@ -92,13 +85,15 @@ def doctor():
     check("llama-cpp-python import", check_llama_cpp_import)
 
     def check_model_availability():
-        # Using ModelManager to ensure model is available (downloads if needed, verifies checksum)
-        model_manager = ModelManager()
-        model_path = model_manager.ensure_model_available()
-        if model_path:
-            return True, f"Model available at: {model_path}"
+        registry_path = Path(__file__).parent.parent.parent / "registry" / "models.json"
+        models_dir = Path(paths.get_models_dir())
+        resolver = FileSystemArtifactResolver(registry_path=registry_path, models_dir=models_dir)
+        
+        available_models = resolver.list_available()
+        if available_models:
+            return True, f"Found {len(available_models)} installed model(s)."
         else:
-            return False, "Failed to find or download a suitable model. Check RAM, disk space, and network."
+            return False, "No models found or installed. Please run `imrabo install`."
     check("Model presence and integrity", check_model_availability)
 
 

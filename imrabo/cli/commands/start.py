@@ -1,5 +1,9 @@
 import typer
+from rich.console import Console
+
 from imrabo.cli import core
+
+console = Console()
 
 def start():
     """
@@ -9,7 +13,7 @@ def start():
         typer.echo("imrabo runtime is already running.")
         raise typer.Exit()
 
-    typer.echo("Starting imrabo runtime...")
+    console.print("Starting imrabo runtime...")
     success = core.start_runtime()
     
     if success:
