@@ -17,7 +17,7 @@ from imrabo.internal import paths
 from imrabo.internal.logging import get_logger
 from imrabo.internal.constants import RUNTIME_HOST, RUNTIME_PORT
 # The security module will also need to be moved or adapted eventually
-from imrabo.runtime.security import load_token, generate_token, save_token
+from imrabo.internal.security import load_token, generate_token, save_token
 
 # Kernel contracts are the new interface
 from imrabo.kernel.contracts import ExecutionRequest, ExecutionResult
@@ -52,15 +52,15 @@ security = HTTPBearer()
 # Auth (remains in the adapter layer)
 # --------------------------------------------------------------------- 
 
-def get_runtime_token() -> str:
-    token_file = paths.get_runtime_token_file()
-    token = load_token(token_file)
-    if not token:
-        token = generate_token()
-        save_token(token, token_file)
-    return token
+# def get_runtime_token() -> str:
+#     token_file = paths.get_runtime_token_file()
+#     token = load_token(token_file)
+#     if not token:
+#         token = generate_token()
+#         save_token(token, token_file)
+#     return token
 
-RUNTIME_AUTH_TOKEN = get_runtime_token()
+# RUNTIME_AUTH_TOKEN = get_runtime_token()
 
 
 async def verify_token(

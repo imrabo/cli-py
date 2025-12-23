@@ -1,132 +1,134 @@
 {
   "schema_version": 1,
-  "qwen2.5-coder-1.5b": {
-    "id": "qwen2.5-coder-1.5b",
-    "family": "qwen2.5-coder",
-    "publisher": "Qwen",
-    "description": "Compact, fast coding-focused instruction model. Suitable for local development, scripting, and lightweight agent tasks on low-memory systems.",
-    "license": "Apache-2.0",
-    "engine": "llama.cpp",
-    "min_ram_gb": 3,
-    "recommended_ram_gb": 4,
-    "context_length": 32768,
-    "prompt_style": {
-      "template": "<|im_start|>{{role}}\n{{prompt}}<|im_end|>\n",
-      "system_prompt": "You are a helpful coding assistant. You generate correct code and follow instructions precisely."
-    },
-    "variants": [
-      {
-        "id": "q2_k",
-        "quantization": "Q2_K",
-        "precision": "int2",
-        "notes": "Ultra-low memory. Significantly reduced reasoning quality.",
-        "total_size_gb": 0.6,
-        "verified_at": "2025-01-01",
-        "files": [
-          {
-            "filename": "qwen2.5-coder-1.5b-instruct-q2_k.gguf",
-            "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q2_k.gguf",
-            "sha256": "f1519d5335131e50f52ba5307b27453c12a70425039a69f44f43407e7a3c3b09",
-            "size_gb": 0.6
-          }
-        ]
+  "models": {
+    "qwen2.5-coder-1.5b": {
+      "id": "qwen2.5-coder-1.5b",
+      "family": "qwen2.5-coder",
+      "publisher": "Qwen",
+      "description": "Compact, fast coding-focused instruction model. Suitable for local development, scripting, and lightweight agent tasks on low-memory systems.",
+      "license": "Apache-2.0",
+      "engine": "llama.cpp",
+      "min_ram_gb": 3,
+      "recommended_ram_gb": 4,
+      "context_length": 32768,
+      "prompt_style": {
+        "template": "<|im_start|>{{role}}\n{{prompt}}<|im_end|>\n",
+        "system_prompt": "You are a helpful coding assistant. You generate correct code and follow instructions precisely."
       },
-      {
-        "id": "q3_k_m",
-        "quantization": "Q3_K_M",
-        "precision": "int3",
-        "notes": "Low memory. Acceptable for simple scripting and code snippets.",
-        "total_size_gb": 0.75,
-        "verified_at": "2025-01-01",
-        "files": [
-          {
-            "filename": "qwen2.5-coder-1.5b-instruct-q3_k_m.gguf",
-            "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q3_k_m.gguf",
-            "sha256": "4edc15951e7a50742134b22c8e3100371a5f4c47b55f26903f90558a26b64f43",
-            "size_gb": 0.75
-          }
-        ]
-      },
-      {
-        "id": "q4_k_m",
-        "quantization": "Q4_K_M",
-        "precision": "int4",
-        "notes": "Best default. Good balance of speed and correctness for its size.",
-        "total_size_gb": 0.9,
-        "verified_at": "2025-01-01",
-        "files": [
-          {
-            "filename": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
-            "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
-            "sha256": "d2fbd3e5b68f4e8a5f7dc6a91b2b7b5e0d87a6e3b1e1c8df5c9a6fd52f3a7a9d",
-            "size_gb": 0.9
-          }
-        ]
-      },
-      {
-        "id": "q5_k_m",
-        "quantization": "Q5_K_M",
-        "precision": "int5",
-        "notes": "Higher fidelity. Slightly better reasoning, still limited by model size.",
-        "total_size_gb": 1.05,
-        "verified_at": "2025-01-01",
-        "files": [
-          {
-            "filename": "qwen2.5-coder-1.5b-instruct-q5_k_m.gguf",
-            "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q5_k_m.gguf",
-            "sha256": "a32c253b74737b8303322f03845f3c051a316c0b368a329d5c3d4cbe2f8e1363",
-            "size_gb": 1.05
-          }
-        ]
-      },
-      {
-        "id": "q6_k",
-        "quantization": "Q6_K",
-        "precision": "int6",
-        "notes": "Near-int8 quality. Best accuracy available for 1.5B.",
-        "total_size_gb": 1.2,
-        "verified_at": "2025-01-01",
-        "files": [
-          {
-            "filename": "qwen2.5-coder-1.5b-instruct-q6_k.gguf",
-            "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q6_k.gguf",
-            "sha256": "f214619d7a31b453e00e57b98d4239857d45763261a46b97063a1f879abb5c34",
-            "size_gb": 1.2
-          }
-        ]
-      },
-      {
-        "id": "q8_0",
-        "quantization": "Q8_0",
-        "precision": "int8",
-        "notes": "Maximum fidelity for CPU usage. Diminishing returns beyond this.",
-        "total_size_gb": 1.6,
-        "verified_at": "2025-01-01",
-        "files": [
-          {
-            "filename": "qwen2.5-coder-1.5b-instruct-q8_0.gguf",
-            "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q8_0.gguf",
-            "sha256": "e1d4d7f5787b464736b4a3c260f89838157778b30a5991811e51b1479867512f",
-            "size_gb": 1.6
-          }
-        ]
-      },
-      {
-        "id": "f16",
-        "quantization": "F16",
-        "precision": "fp16",
-        "notes": "Full precision. Mostly useful for benchmarking or fine-tuning.",
-        "total_size_gb": 3.0,
-        "verified_at": "2025-01-01",
-        "files": [
-          {
-            "filename": "qwen2.5-coder-1.5b-instruct-f16.gguf",
-            "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-f16.gguf",
-            "sha256": "1441400d32f75845c434220b2d3524b077f5296839b850d9921606d09129598a",
-            "size_gb": 3.0
-          }
-        ]
-      }
-    ]
+      "variants": [
+        {
+          "id": "q2_k",
+          "quantization": "Q2_K",
+          "precision": "int2",
+          "notes": "Ultra-low memory. Significantly reduced reasoning quality.",
+          "total_size_gb": 0.6,
+          "verified_at": "2025-01-01",
+          "files": [
+            {
+              "filename": "qwen2.5-coder-1.5b-instruct-q2_k.gguf",
+              "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q2_k.gguf",
+              "sha256": "3ec56d48cc5acdb93c4323f0d01a3b5db0c73c54fe71831199223720d37f6fcd",
+              "size_gb": 0.6
+            }
+          ]
+        },
+        {
+          "id": "q3_k_m",
+          "quantization": "Q3_K_M",
+          "precision": "int3",
+          "notes": "Low memory. Acceptable for simple scripting and code snippets.",
+          "total_size_gb": 0.75,
+          "verified_at": "2025-01-01",
+          "files": [
+            {
+              "filename": "qwen2.5-coder-1.5b-instruct-q3_k_m.gguf",
+              "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q3_k_m.gguf",
+              "sha256": "4edc15951e7a50742134b22c8e3100371a5f4c47b55f26903f90558a26b64f43",
+              "size_gb": 0.75
+            }
+          ]
+        },
+        {
+          "id": "q4_k_m",
+          "quantization": "Q4_K_M",
+          "precision": "int4",
+          "notes": "Best default. Good balance of speed and correctness for its size.",
+          "total_size_gb": 0.9,
+          "verified_at": "2025-01-01",
+          "files": [
+            {
+              "filename": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+              "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+              "sha256": "d2fbd3e5b68f4e8a5f7dc6a91b2b7b5e0d87a6e3b1e1c8df5c9a6fd52f3a7a9d",
+              "size_gb": 0.9
+            }
+          ]
+        },
+        {
+          "id": "q5_k_m",
+          "quantization": "Q5_K_M",
+          "precision": "int5",
+          "notes": "Higher fidelity. Slightly better reasoning, still limited by model size.",
+          "total_size_gb": 1.05,
+          "verified_at": "2025-01-01",
+          "files": [
+            {
+              "filename": "qwen2.5-coder-1.5b-instruct-q5_k_m.gguf",
+              "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q5_k_m.gguf",
+              "sha256": "a32c253b74737b8303322f03845f3c051a316c0b368a329d5c3d4cbe2f8e1363",
+              "size_gb": 1.05
+            }
+          ]
+        },
+        {
+          "id": "q6_k",
+          "quantization": "Q6_K",
+          "precision": "int6",
+          "notes": "Near-int8 quality. Best accuracy available for 1.5B.",
+          "total_size_gb": 1.2,
+          "verified_at": "2025-01-01",
+          "files": [
+            {
+              "filename": "qwen2.5-coder-1.5b-instruct-q6_k.gguf",
+              "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q6_k.gguf",
+              "sha256": "f214619d7a31b453e00e57b98d4239857d45763261a46b97063a1f879abb5c34",
+              "size_gb": 1.2
+            }
+          ]
+        },
+        {
+          "id": "q8_0",
+          "quantization": "Q8_0",
+          "precision": "int8",
+          "notes": "Maximum fidelity for CPU usage. Diminishing returns beyond this.",
+          "total_size_gb": 1.6,
+          "verified_at": "2025-01-01",
+          "files": [
+            {
+              "filename": "qwen2.5-coder-1.5b-instruct-q8_0.gguf",
+              "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q8_0.gguf",
+              "sha256": "e1d4d7f5787b464736b4a3c260f89838157778b30a5991811e51b1479867512f",
+              "size_gb": 1.6
+            }
+          ]
+        },
+        {
+          "id": "f16",
+          "quantization": "F16",
+          "precision": "fp16",
+          "notes": "Full precision. Mostly useful for benchmarking or fine-tuning.",
+          "total_size_gb": 3.0,
+          "verified_at": "2025-01-01",
+          "files": [
+            {
+              "filename": "qwen2.5-coder-1.5b-instruct-f16.gguf",
+              "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-f16.gguf",
+              "sha256": "1441400d32f75845c434220b2d3524b077f5296839b850d9921606d09129598a",
+              "size_gb": 3.0
+            }
+          ]
+        }
+      ]
+    }
   }
 }

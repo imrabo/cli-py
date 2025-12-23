@@ -74,7 +74,11 @@ class FileSystemArtifactResolver(ArtifactResolver):
             
             actual_sha = self._calculate_sha256(temp_path)
             if actual_sha != expected_sha:
-                print(f"Error: Checksum mismatch for {target_path.name}")
+                print(
+                    f"Checksum mismatch for {target_path.name}\n"
+                    f"Expected: {expected_sha}\n"
+                    f"Actual:   {actual_sha}"
+                )
                 return False
             
             temp_path.replace(target_path)

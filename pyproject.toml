@@ -23,3 +23,8 @@ imrabo = "imrabo.cli.main:app"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."] # Search in the current directory
+include = ["imrabo*"] # Only include 'imrabo' and its subpackages
+exclude = ["site*"] # Explicitly exclude 'site' directory
